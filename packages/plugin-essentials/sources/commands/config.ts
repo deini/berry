@@ -17,7 +17,7 @@ export default (clipanion: any, pluginConfiguration: PluginConfiguration) => cli
 
   .detail(`
     This command prints the current active configuration settings.
-    
+
     When used together with the \`-v,--verbose\` option, the output will contain the settings description on top of the regular key/value information.
 
     When used together with the \`--why\` flag, the output will also contain the reason why a settings is set a particular way.
@@ -31,7 +31,7 @@ export default (clipanion: any, pluginConfiguration: PluginConfiguration) => cli
   )
 
   .action(async ({cwd, stdout, verbose, why, json}: {cwd: string, stdout: Writable, verbose: boolean, why: boolean, json: boolean}) => {
-    const configuration = await Configuration.find(cwd, pluginConfiguration);
+    const configuration = await Configuration.find(cwd, pluginConfiguration, false);
 
     const getValue = (key: string) => {
       const isSecret = configuration.settings.get(key)!.type === SettingsType.SECRET;
@@ -60,10 +60,16 @@ export default (clipanion: any, pluginConfiguration: PluginConfiguration) => cli
             report.reportJson({key, effective, source, ... data});
           }
         }
+
+        for (const invalidKey of configuration.invalidSettings) {
+          const source = configuration.sources.get(invalidKey);
+
+          report.reportJson({invalidKey, source});
+        }
       } else {
         const keys = miscUtils.sortMap(configuration.settings.keys(), key => key);
         const maxKeyLength = keys.reduce((max, key) => Math.max(max, key.length), 0);
-    
+
         const inspectConfig = {
           breakLength: Infinity,
           colors: configuration.get(`enableColors`),
@@ -95,6 +101,10 @@ export default (clipanion: any, pluginConfiguration: PluginConfiguration) => cli
           for (const key of keys) {
             report.reportInfo(MessageName.UNNAMED, `${key.padEnd(maxKeyLength, ` `)}   ${inspect(getValue(key), inspectConfig)}`);
           }
+        }
+
+        for (const invalidKey of configuration.invalidSettings) {
+          report.reportError(MessageName.INVALID_CONFIG, `${invalidKey.padEnd(maxKeyLength, ` `)}   Invalid setting in ${configuration.sources.get(invalidKey)}`);
         }
       }
     });

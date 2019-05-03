@@ -326,6 +326,8 @@ export class Configuration {
   public values: Map<string, any> = new Map();
   public sources: Map<string, string> = new Map();
 
+  public invalidSettings: Set<string> = new Set();
+
   /**
    * Instantiate a new configuration object exposing the configuration obtained
    * from reading the various rc files and the environment settings.
@@ -352,7 +354,7 @@ export class Configuration {
    * one listed on /foo/bar/.yarnrc, but not the other way around).
    */
 
-  static async find(startingCwd: string, pluginConfiguration: PluginConfiguration | null) {
+  static async find(startingCwd: string, pluginConfiguration: PluginConfiguration | null, strict: boolean = true) {
     const environmentSettings = getEnvironmentSettings();
     delete environmentSettings.rcFilename;
 
@@ -425,10 +427,10 @@ export class Configuration {
     const projectCwd = await Configuration.findProjectCwd(startingCwd, lockfileFilename);
 
     const configuration = new Configuration(projectCwd, plugins);
-    configuration.useWithSource(`<environment>`, environmentSettings, startingCwd);
+    configuration.useWithSource(`<environment>`, environmentSettings, startingCwd, strict);
 
     for (const {path, cwd, data} of rcFiles)
-      configuration.useWithSource(path, data, cwd);
+      configuration.useWithSource(path, data, cwd, strict);
 
     if (configuration.get(`enableGlobalCache`)) {
       configuration.values.set(`cacheFolder`, `${configuration.get(`globalFolder`)}/cache`);
@@ -572,16 +574,16 @@ export class Configuration {
     }
   }
 
-  useWithSource(source: string, data: {[key: string]: unknown}, folder: string) {
+  useWithSource(source: string, data: {[key: string]: unknown}, folder: string, strict: boolean = true) {
     try {
-      this.use(source, data, folder);
+      this.use(source, data, folder, strict);
     } catch (error) {
       error.message += ` (in ${source})`;
       throw error;
     }
   }
 
-  use(source: string, data: {[key: string]: unknown}, folder: string) {
+  use(source: string, data: {[key: string]: unknown}, folder: string, strict: boolean = true) {
     if (typeof data.berry === `object` && data.berry !== null)
       data = data.berry;
 
@@ -601,8 +603,13 @@ export class Configuration {
         throw new UsageError(`The rcFilename settings can only be set via ${`${ENVIRONMENT_PREFIX}RC_FILENAME`.toUpperCase()}, not via a rc file`);
 
       const definition = this.settings.get(name);
-      if (!definition)
+      if (!definition && strict) {
         throw new UsageError(`${legacyNames.has(key) ? `Legacy` : `Unrecognized`} configuration settings found: ${key} - run "yarn config -v" to see the list of settings supported in Yarn`);
+      } else if (!definition) {
+        this.invalidSettings.add(name);
+        this.sources.set(name, source);
+        return;
+      }
 
       if (this.sources.has(name))
         continue;

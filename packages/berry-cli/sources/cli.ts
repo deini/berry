@@ -40,7 +40,10 @@ function runBinary(path: string) {
 }
 
 async function run() {
-  const configuration = await Configuration.find(NodeFS.toPortablePath(process.cwd()), pluginConfiguration);
+  // This is pretty nasty, having to do a check for the specific "config" command
+  // Not sure whats the best way to handle it so that I can pass strict `false` just for that command
+  const strictConfig = process.argv.slice(2)[0] !== 'config';
+  const configuration = await Configuration.find(NodeFS.toPortablePath(process.cwd()), pluginConfiguration, strictConfig);
 
   const yarnPath = configuration.get(`yarnPath`);
   const ignorePath = configuration.get(`ignorePath`);
