@@ -1,7 +1,7 @@
 import {Plugin}   from '@berry/core';
 
 import npmPublish from './commands/npm/publish';
-import whoami     from './commands/whoami';
+import whoami     from './commands/npm/whoami';
 
 const plugin: Plugin = {
   commands: [
