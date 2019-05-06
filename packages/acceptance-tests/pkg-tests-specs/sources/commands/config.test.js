@@ -1,5 +1,6 @@
+const {homedir} = require('os');
 const {
-  fs: {mkdirp, writeFile},
+  fs: {mkdirp, writeFile, createTemporaryFolder},
 } = require('pkg-tests-core');
 
 const RC_FILENAME = `.spec-yarnrc`;
@@ -25,6 +26,12 @@ const environments = {
   [`folder with rcfile and rc in ancestor parent`]: async path => {
     await writeFile(`${path}/${SUBFOLDER}/${SUBFOLDER}/${RC_FILENAME}`, `init-scope berry-test\n`);
     await writeFile(`${path}/${RC_FILENAME}`, `init-scope berry-test\nlastUpdateCheck 1555784893958\n`);
+  },
+  [`folder with rcfile and rc in home`]: async path => {
+    console.log('homeenv', process.env.HOME);
+    console.log('HOMEDIR', homedir());
+    await writeFile(`${process.env.HOME}/${RC_FILENAME}`, `init-scope berry-test\nnpmAlwaysAuth: true\n`);
+    await writeFile(`${path}/${SUBFOLDER}/${RC_FILENAME}`, `init-scope berry-test\nlastUpdateCheck 1555784893958\n`);
   },
 };
 
@@ -56,7 +63,7 @@ function cleanupJsonOutput(output, path) {
 
   // the default globalFolder contains the user's home folder, override that value
   outputObject[`globalFolder`].default = `DEFAULT_GLOBAL_FOLDER`;
-  
+
   // replace the generated registry server URL with a constant
   outputObject[`npmRegistryServer`].effective = FAKE_REGISTRY_URL;
 
@@ -97,9 +104,11 @@ describe(`Commands`, () => {
           let code;
           let stdout;
           let stderr;
+          let homeDir;
 
           try {
-            ({code, stdout, stderr} = await run(`config`, ...flags, {cwd, env: {YARN_RC_FILENAME: RC_FILENAME}}));
+            homeDir = await createTemporaryFolder();
+            ({code, stdout, stderr} = await run(`config`, ...flags, {cwd, env: {YARN_RC_FILENAME: RC_FILENAME, HOME: homeDir}}));
           } catch (error) {
             ({code, stdout, stderr} = error);
           }
