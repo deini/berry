@@ -28,7 +28,7 @@ export async function put(url: string, body: httpUtils.Body, {configuration, hea
 function getAuthenticationHeader({configuration}: {configuration: Configuration}, {ident, forceAuth}: AuthOptions) {
   const mustAuthenticate = configuration.get(`npmAlwaysAuth`) || forceAuth;
 
-  if (!mustAuthenticate && ident && !ident.scope)
+  if (!mustAuthenticate && (!ident || !ident.scope))
     return null;
 
   if (configuration.get(`npmAuthToken`))
